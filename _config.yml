@@ -1,1 +1,10 @@
+# basic options
+title: Personal website
+author: Phillip Lippe
+email: phillip.lippe@googlemail.com
+description: A website
+twitter_username: phlippe
+github_username: phlippe
+
+# Build settings
 theme: jekyll-theme-cayman
