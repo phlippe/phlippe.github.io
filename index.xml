@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Phillip Lippe</title><link>https://phillip-lippe.netlify.app/</link><atom:link href="https://phillip-lippe.netlify.app/index.xml" rel="self" type="application/rss+xml"/><description>Phillip Lippe</description><generator>Wowchemy (https://wowchemy.com)</generator><language>en-us</language><lastBuildDate>Sat, 01 Jun 2030 13:00:00 +0000</lastBuildDate><image><url>https://phillip-lippe.netlify.app/images/icon_hu0e52d27619ca697302473bf6bef84b86_261020_512x512_fill_lanczos_center_2.png</url><title>Phillip Lippe</title><link>https://phillip-lippe.netlify.app/</link></image><item><title>Example Talk</title><link>https://phillip-lippe.netlify.app/talk/example-talk/</link><pubDate>Sat, 01 Jun 2030 13:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/talk/example-talk/</guid><description>&lt;div class="alert alert-note">
+&lt;div>
+Click on the &lt;strong>Slides&lt;/strong> button above to view the built-in slides feature.
+&lt;/div>
+&lt;/div>
+&lt;p>Slides can be added in a few ways:&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>Create&lt;/strong> slides using Wowchemy&amp;rsquo;s &lt;a href="https://wowchemy.com/docs/managing-content/#create-slides" target="_blank" rel="noopener">&lt;em>Slides&lt;/em>&lt;/a> feature and link using &lt;code>slides&lt;/code> parameter in the front matter of the talk file&lt;/li>
+&lt;li>&lt;strong>Upload&lt;/strong> an existing slide deck to &lt;code>static/&lt;/code> and link using &lt;code>url_slides&lt;/code> parameter in the front matter of the talk file&lt;/li>
+&lt;li>&lt;strong>Embed&lt;/strong> your slides (e.g. Google Slides) or presentation video on this page using &lt;a href="https://wowchemy.com/docs/writing-markdown-latex/" target="_blank" rel="noopener">shortcodes&lt;/a>.&lt;/li>
+&lt;/ul>
+&lt;p>Further event details, including &lt;a href="https://wowchemy.com/docs/writing-markdown-latex/" target="_blank" rel="noopener">page elements&lt;/a> such as image galleries, can be added to the body of this page.&lt;/p></description></item><item><title>Normalizing Flows on categorical data</title><link>https://phillip-lippe.netlify.app/post/categorical-nf/</link><pubDate>Sat, 23 Jan 2021 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/post/categorical-nf/</guid><description>&lt;p>Ever since Generative Adversarial Networks have shown to generate realistic fake images, or GPT3 creating new, convincing text snippets, generative modeling has been a very popular research area, but also for future applications. One family of generative models, that allows both efficient sampling (i.e. generating new data) and exact density evaluation (i.e. determining the likelihood of a sample) is Normalizing Flows. Normalizing Flows model distributions by applying a sequence of invertible transformations mapping the input distribution to a known base distribution such as a factorized Gaussian. Successful applications include image and audio generation. However, a lot of real world data is categorical nature where variables represent a discrete value in a finite set. For instance, language is based on categorical data as words or characters represent different categories. Another popular example is molecule graphs where not only the nodes can be one out of many atom types, but also the edges (i.e. bonds between atoms) can have different categories. In this blog post, we will discuss what challenges there are for Normalizing Flows to be applied to categorical data, how Categorical Normalizing Flow offer a solution to those, and how we can extend this framework to a permutation-invariant graph generation model.&lt;/p>
+&lt;figure>
+&lt;img src="intro_categorical_data.svg" width="70%">
+&lt;figcaption>&lt;b>Figure 1&lt;/b>: Common applications that involve categorical data are language modeling (left) and use cases in biology and chemistry like molecule generation (right).&lt;/figcaption>
+&lt;/figure>
+&lt;h2 id="normalizing-flows-on-categorical-data">Normalizing Flows on categorical data&lt;/h2>
+&lt;p>Normalizing Flows rely on the rule of change of variables which is naturally defined on continuous space. Attempts to apply Normalizing Flows directly on discrete data by discretizing their transformations suffer from optimization difficulties as biased gradient estimator need to be used. Besides, Discrete Normalizing Flows are not as flexible as their continuous counterparts. In the context of image modeling, a popular technique is to move the images into continuous space by &lt;em>dequantizing&lt;/em> the discrete data, effectively adding a small amount of noise to transform a discrete point to a volume in continuous space. However, this works for images because their discrete values represent integers where 0 is closer to 1 than 128, and so on. In terms of categorical data, we cannot take such assumptions (for instance, is the letter &lt;em>a&lt;/em> closer to &lt;em>m&lt;/em> or &lt;em>r&lt;/em>?). Instead, we would need a learnable encoding function from categorical to continuous space, which supports higher dimensions to represent more complex relations between categories. At the same time, no information should be lost when moving into continuous space, as we want to use all the benefits of Normalizing Flows.&lt;/p>
+&lt;p>Categorical Normalizing Flows offer a solution to this problem by using variational inference, but with a factorized decoder. In a VAE, an encoder maps the whole input to a smaller latent space, and a consecutive decoder tries to reconstruct the original input. In contrast, in Categorical Normalizing Flows, the encoder maps each categorical variable to a corresponding continuous variable in latent space, and the decoder is independently applied on those latent variables. A standard Normalizing Flow can then be applied on those continuous variables to map to a prior distribution like a Gaussian. This way, only the flow can model interactions between categorical variables, and the encoder-decoder framework is limited to providing suitable continuous representations to the flow. An overview of this architecture is given in the figure below, and details on this approach can be found in our &lt;a href="https://openreview.net/pdf?id=-GLNZeVDuik" target="_blank" rel="noopener">paper&lt;/a>.&lt;/p>
+&lt;figure>
+&lt;img src="flow_structure.svg" width="90%">
+&lt;figcaption>&lt;b>Figure 2&lt;/b>: An encoder $q$ maps the categorical input $x$ (here text) to continuous latent variables $z$. Each word is thereby represented by a separate two-dimensional latent variable, based on which the decoder reconstructs the categorical data. The Normalizing Flow learns to map the continuous representations to a prior distribution, such as a Gaussian.&lt;/figcaption>
+&lt;/figure>
+&lt;p>In experiments on sets and language modeling, Categorical Normalizing Flows are able to match the performance of non-latent based autoregressive baselines while considerably outperforming VAE-based approaches with joint decoders. This shows the effectivity of using a factorized decoder, and focusing the modeling complexity into the flow.&lt;/p>
+&lt;h2 id="graphcnf-permutation-invariant-graph-modeling">GraphCNF: permutation-invariant graph modeling&lt;/h2>
+&lt;p>Besides language, graph generation is another domain where categorical data plays an essential role. To make it more specific, we put our focus here on molecule generation, but note that the approach outlined below can also be applied to other graph generation tasks with categorical attributes, such as graph coloring.&lt;/p>
+&lt;p>Modeling and generating graphs is crucial in biology and chemistry for applications such as drug discovery, where molecule generation has emerged as a common benchmark. In a molecule graph, the nodes are atoms and he edges represent bonds between atoms, both represented by categorical features. The figure below shows a small molecule and its corresponding graph representation as an example.&lt;/p>
+&lt;figure>
+&lt;img src="molecule_graph.svg" width="70%">
+&lt;figcaption>&lt;b>Figure 3&lt;/b>: The molecule on the left can be represented as graph by considering its atoms as nodes, and bonds as edges. The different colors of nodes and edges in the graph on the right visualize different categories. Note that the nodes without text in the molecule on the left are carbon atoms.&lt;/figcaption>
+&lt;/figure>
+&lt;p>Given a dataset of existing molecules, the goal is to learn a distribution of valid molecules as not all possible combinations of atoms and bonds are valid. We train the model via maximum likelihood on the existing data. Thereby, we need to model three parts of the graph: the node attributes (i.e. atom types), the edge attributes (i.e. bond category), and the adjacency matrix (i.e. whether two atoms have a bond at all or not). Furthermore, another challenge is that the nodes are unordered, meaning they have to be considered as a set and not as a list. Hence, any permutation of the nodes has to be assigned the exact same likelihood.&lt;/p>
+&lt;p>Using Categorical Normalizing Flows, we can implement this in a three-step approach as visualized in Figure 4, and call the approach GraphCNF. First, we map the node categories into continuous space using the approach of Categorical Normalizing Flows discussed above. On those latent variables, we apply a small sequence of coupling layers conditioned on the rest of the graph structure. In the second step, we map the edge attributes into continuous space, and apply another set of coupling layers. Finally, in the last step, we add the &lt;em>virtual edges&lt;/em>, i.e. the edges that are not present in our graph. We add those as another edge category using Categorical Normalizing Flows, and apply a final set of coupling layers. Note that as those are applied on a fully connected graph now, this is the most expensive step of GraphCNF.&lt;/p>
+&lt;figure>
+&lt;img src="graphcnf.svg" width="100%">
+&lt;figcaption>&lt;b>Figure 4&lt;/b>: Visualization of GraphCNF for an example graph of five nodes. We add the node and edge attributes, as well as the virtual edges stepwise to the latent space while leveraging the graph structure in the coupling layers. The last step considers a fully connected graph with features per edge.&lt;/figcaption>
+&lt;/figure>
+&lt;p>To ensure permutation invariance, all coupling layers use channel-wise masking, and all neural networks in the model are permutation equivariant graph neural networks (i.e. any permutation give the same output, just permuted). When applying this model to molecule generation and randomly sample 10k molecules from it, we see that more than 83% are actual valid molecules. Furthermore, most of them are unique and novel compared to the training dataset, showing that GraphCNF actually generalizes and does not just remember the training examples.&lt;/p>
+&lt;figure>
+&lt;img src="molecule_generation_results.svg" width="100%">
+&lt;figcaption>&lt;b>Figure 5&lt;/b>: Results on molecule generation task in comparison to other state-of-the-art models. GraphCNF performs favourably while usign no manually encoded rules during generation.&lt;/figcaption>
+&lt;/figure>
+&lt;p>The most common failure case we observed was that the sampled graph was not connected, meaning that we actually generate two or more separate graphs. This can happen as in contrast to autoregressive models, it is much harder for parallel models to ensure that every node can be reached from any other node. When considering the biggest subgraph in those generation, we are able to push the validity percentage to 96% without enforcing any explicit rule of molecule graphs. This is a relatively large gap to the closest state-of-the-art autoregressive flow model at the time of writing, GraphAF, and shows the importance of the encoding in Normalizing Flows, and permutation invariance for graph generation in general.&lt;/p>
+&lt;h2 id="conclusion">Conclusion&lt;/h2>
+&lt;p>In this blog post, we reviewed the key ideas behind Categorical Normalizing Flows and GraphCNF. As Normalizing Flows are naturally defined for continuous data, we can first the map discrete, categorical data into continuous space on which a flow can be applied. While doing so, factorizing the decoder helps by pushing all modeling complexity into the flow. GraphCNF relies on this principle to model graphs with categorical attributes such as molecules. In a three-step approach, it remains efficient yet provides a permutation invariant likelihood estimate of any graph. Future work can attempt to overcome the failure case of subgraph sampling in parallel graph models like GraphCNF, and scale it up to large graphs with more than 100 nodes.&lt;/p>
+&lt;p>To read up on all the details of Categorical Normalizing Flows and GraphCNF, please see our paper &lt;a href="../../publication/lippe-2021-categorical/">&lt;em>Categorical Normalizing Flows via Continuous Transformations&lt;/em>&lt;/a>.&lt;/p></description></item><item><title>Categorical Normalizing Flows via Continuous Transformations</title><link>https://phillip-lippe.netlify.app/publication/lippe-2021-categorical/</link><pubDate>Tue, 12 Jan 2021 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/publication/lippe-2021-categorical/</guid><description/></item><item><title>A Multimodal Framework for the Detection of Hateful Memes</title><link>https://phillip-lippe.netlify.app/publication/lippe-2020-multimodal/</link><pubDate>Thu, 24 Dec 2020 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/publication/lippe-2020-multimodal/</guid><description/></item><item><title>Diversifying Task-oriented Dialogue Response Generation with Prototype Guided Paraphrasing</title><link>https://phillip-lippe.netlify.app/publication/lippe-2020-diversifying/</link><pubDate>Sat, 01 Aug 2020 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/publication/lippe-2020-diversifying/</guid><description/></item><item><title>Slides</title><link>https://phillip-lippe.netlify.app/slides/example/</link><pubDate>Tue, 05 Feb 2019 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/slides/example/</guid><description>&lt;h1 id="create-slides-in-markdown-with-wowchemy">Create slides in Markdown with Wowchemy&lt;/h1>
+&lt;p>&lt;a href="https://wowchemy.com/" target="_blank" rel="noopener">Wowchemy&lt;/a> | &lt;a href="https://owchemy.com/docs/managing-content/#create-slides" target="_blank" rel="noopener">Documentation&lt;/a>&lt;/p>
+&lt;hr>
+&lt;h2 id="features">Features&lt;/h2>
+&lt;ul>
+&lt;li>Efficiently write slides in Markdown&lt;/li>
+&lt;li>3-in-1: Create, Present, and Publish your slides&lt;/li>
+&lt;li>Supports speaker notes&lt;/li>
+&lt;li>Mobile friendly slides&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;h2 id="controls">Controls&lt;/h2>
+&lt;ul>
+&lt;li>Next: &lt;code>Right Arrow&lt;/code> or &lt;code>Space&lt;/code>&lt;/li>
+&lt;li>Previous: &lt;code>Left Arrow&lt;/code>&lt;/li>
+&lt;li>Start: &lt;code>Home&lt;/code>&lt;/li>
+&lt;li>Finish: &lt;code>End&lt;/code>&lt;/li>
+&lt;li>Overview: &lt;code>Esc&lt;/code>&lt;/li>
+&lt;li>Speaker notes: &lt;code>S&lt;/code>&lt;/li>
+&lt;li>Fullscreen: &lt;code>F&lt;/code>&lt;/li>
+&lt;li>Zoom: &lt;code>Alt + Click&lt;/code>&lt;/li>
+&lt;li>&lt;a href="https://github.com/hakimel/reveal.js#pdf-export" target="_blank" rel="noopener">PDF Export&lt;/a>: &lt;code>E&lt;/code>&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;h2 id="code-highlighting">Code Highlighting&lt;/h2>
+&lt;p>Inline code: &lt;code>variable&lt;/code>&lt;/p>
+&lt;p>Code block:&lt;/p>
+&lt;pre>&lt;code class="language-python">porridge = &amp;quot;blueberry&amp;quot;
+if porridge == &amp;quot;blueberry&amp;quot;:
+print(&amp;quot;Eating...&amp;quot;)
+&lt;/code>&lt;/pre>
+&lt;hr>
+&lt;h2 id="math">Math&lt;/h2>
+&lt;p>In-line math: $x + y = z$&lt;/p>
+&lt;p>Block math:&lt;/p>
+&lt;p>$$
+f\left( x \right) = ;\frac{{2\left( {x + 4} \right)\left( {x - 4} \right)}}{{\left( {x + 4} \right)\left( {x + 1} \right)}}
+$$&lt;/p>
+&lt;hr>
+&lt;h2 id="fragments">Fragments&lt;/h2>
+&lt;p>Make content appear incrementally&lt;/p>
+&lt;pre>&lt;code>{{% fragment %}} One {{% /fragment %}}
+{{% fragment %}} **Two** {{% /fragment %}}
+{{% fragment %}} Three {{% /fragment %}}
+&lt;/code>&lt;/pre>
+&lt;p>Press &lt;code>Space&lt;/code> to play!&lt;/p>
+&lt;p>&lt;span class="fragment " >
+One
+&lt;/span>
+&lt;span class="fragment " >
+&lt;strong>Two&lt;/strong>
+&lt;/span>
+&lt;span class="fragment " >
+Three
+&lt;/span>&lt;/p>
+&lt;hr>
+&lt;p>A fragment can accept two optional parameters:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>class&lt;/code>: use a custom style (requires definition in custom CSS)&lt;/li>
+&lt;li>&lt;code>weight&lt;/code>: sets the order in which a fragment appears&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;h2 id="speaker-notes">Speaker Notes&lt;/h2>
+&lt;p>Add speaker notes to your presentation&lt;/p>
+&lt;pre>&lt;code class="language-markdown">{{% speaker_note %}}
+- Only the speaker can read these notes
+- Press `S` key to view
+{{% /speaker_note %}}
+&lt;/code>&lt;/pre>
+&lt;p>Press the &lt;code>S&lt;/code> key to view the speaker notes!&lt;/p>
+&lt;aside class="notes">
+&lt;ul>
+&lt;li>Only the speaker can read these notes&lt;/li>
+&lt;li>Press &lt;code>S&lt;/code> key to view&lt;/li>
+&lt;/ul>
+&lt;/aside>
+&lt;hr>
+&lt;h2 id="themes">Themes&lt;/h2>
+&lt;ul>
+&lt;li>black: Black background, white text, blue links (default)&lt;/li>
+&lt;li>white: White background, black text, blue links&lt;/li>
+&lt;li>league: Gray background, white text, blue links&lt;/li>
+&lt;li>beige: Beige background, dark text, brown links&lt;/li>
+&lt;li>sky: Blue background, thin dark text, blue links&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;ul>
+&lt;li>night: Black background, thick white text, orange links&lt;/li>
+&lt;li>serif: Cappuccino background, gray text, brown links&lt;/li>
+&lt;li>simple: White background, black text, blue links&lt;/li>
+&lt;li>solarized: Cream-colored background, dark green text, blue links&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;section data-noprocess data-shortcode-slide
+data-background-image="/media/boards.jpg"
+>
+&lt;h2 id="custom-slide">Custom Slide&lt;/h2>
+&lt;p>Customize the slide style and background&lt;/p>
+&lt;pre>&lt;code class="language-markdown">{{&amp;lt; slide background-image=&amp;quot;/media/boards.jpg&amp;quot; &amp;gt;}}
+{{&amp;lt; slide background-color=&amp;quot;#0000FF&amp;quot; &amp;gt;}}
+{{&amp;lt; slide class=&amp;quot;my-style&amp;quot; &amp;gt;}}
+&lt;/code>&lt;/pre>
+&lt;hr>
+&lt;h2 id="custom-css-example">Custom CSS Example&lt;/h2>
+&lt;p>Let&amp;rsquo;s make headers navy colored.&lt;/p>
+&lt;p>Create &lt;code>assets/css/reveal_custom.css&lt;/code> with:&lt;/p>
+&lt;pre>&lt;code class="language-css">.reveal section h1,
+.reveal section h2,
+.reveal section h3 {
+color: navy;
+}
+&lt;/code>&lt;/pre>
+&lt;hr>
+&lt;h1 id="questions">Questions?&lt;/h1>
+&lt;p>&lt;a href="https://github.com/wowchemy/wowchemy-hugo-modules/discussions" target="_blank" rel="noopener">Ask&lt;/a>&lt;/p>
+&lt;p>&lt;a href="https://wowchemy.com/docs/managing-content/#create-slides" target="_blank" rel="noopener">Documentation&lt;/a>&lt;/p></description></item><item><title>Deep Reasoning - Hardware Accelerated Artificial Intelligence</title><link>https://phillip-lippe.netlify.app/publication/lippe-2018-deep/</link><pubDate>Mon, 01 Oct 2018 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/publication/lippe-2018-deep/</guid><description/></item><item><title>Example Project</title><link>https://phillip-lippe.netlify.app/project/example/</link><pubDate>Wed, 27 Apr 2016 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/project/example/</guid><description>&lt;p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis posuere tellus ac convallis placerat. Proin tincidunt magna sed ex sollicitudin condimentum. Sed ac faucibus dolor, scelerisque sollicitudin nisi. Cras purus urna, suscipit quis sapien eu, pulvinar tempor diam. Quisque risus orci, mollis id ante sit amet, gravida egestas nisl. Sed ac tempus magna. Proin in dui enim. Donec condimentum, sem id dapibus fringilla, tellus enim condimentum arcu, nec volutpat est felis vel metus. Vestibulum sit amet erat at nulla eleifend gravida.&lt;/p>
+&lt;p>Nullam vel molestie justo. Curabitur vitae efficitur leo. In hac habitasse platea dictumst. Sed pulvinar mauris dui, eget varius purus congue ac. Nulla euismod, lorem vel elementum dapibus, nunc justo porta mi, sed tempus est est vel tellus. Nam et enim eleifend, laoreet sem sit amet, elementum sem. Morbi ut leo congue, maximus velit ut, finibus arcu. In et libero cursus, rutrum risus non, molestie leo. Nullam congue quam et volutpat malesuada. Sed risus tortor, pulvinar et dictum nec, sodales non mi. Phasellus lacinia commodo laoreet. Nam mollis, erat in feugiat consectetur, purus eros egestas tellus, in auctor urna odio at nibh. Mauris imperdiet nisi ac magna convallis, at rhoncus ligula cursus.&lt;/p>
+&lt;p>Cras aliquam rhoncus ipsum, in hendrerit nunc mattis vitae. Duis vitae efficitur metus, ac tempus leo. Cras nec fringilla lacus. Quisque sit amet risus at ipsum pharetra commodo. Sed aliquam mauris at consequat eleifend. Praesent porta, augue sed viverra bibendum, neque ante euismod ante, in vehicula justo lorem ac eros. Suspendisse augue libero, venenatis eget tincidunt ut, malesuada at lorem. Donec vitae bibendum arcu. Aenean maximus nulla non pretium iaculis. Quisque imperdiet, nulla in pulvinar aliquet, velit quam ultrices quam, sit amet fringilla leo sem vel nunc. Mauris in lacinia lacus.&lt;/p>
+&lt;p>Suspendisse a tincidunt lacus. Curabitur at urna sagittis, dictum ante sit amet, euismod magna. Sed rutrum massa id tortor commodo, vitae elementum turpis tempus. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean purus turpis, venenatis a ullamcorper nec, tincidunt et massa. Integer posuere quam rutrum arcu vehicula imperdiet. Mauris ullamcorper quam vitae purus congue, quis euismod magna eleifend. Vestibulum semper vel augue eget tincidunt. Fusce eget justo sodales, dapibus odio eu, ultrices lorem. Duis condimentum lorem id eros commodo, in facilisis mauris scelerisque. Morbi sed auctor leo. Nullam volutpat a lacus quis pharetra. Nulla congue rutrum magna a ornare.&lt;/p>
+&lt;p>Aliquam in turpis accumsan, malesuada nibh ut, hendrerit justo. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Quisque sed erat nec justo posuere suscipit. Donec ut efficitur arcu, in malesuada neque. Nunc dignissim nisl massa, id vulputate nunc pretium nec. Quisque eget urna in risus suscipit ultricies. Pellentesque odio odio, tincidunt in eleifend sed, posuere a diam. Nam gravida nisl convallis semper elementum. Morbi vitae felis faucibus, vulputate orci placerat, aliquet nisi. Aliquam erat volutpat. Maecenas sagittis pulvinar purus, sed porta quam laoreet at.&lt;/p></description></item><item><title/><link>https://phillip-lippe.netlify.app/experience/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://phillip-lippe.netlify.app/experience/</guid><description/></item></channel></rss>
